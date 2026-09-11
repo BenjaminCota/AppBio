@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   AppState,
   BackHandler,
+  Image,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
@@ -80,6 +82,7 @@ function App() {
   const [hasLoadedItems, setHasLoadedItems] = useState(false);
   const [activeFolder, setActiveFolder] = useState<FolderType | null>(null);
   const [isPicking, setIsPicking] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<VaultItem | null>(null);
 
   useEffect(() => {
     const checkBiometrics = async () => {
@@ -213,6 +216,25 @@ function App() {
     }
   };
 
+  const openFile = async (item: VaultItem) => {
+    if (item.folder === 'Fotos') {
+      setSelectedImage(item);
+      return;
+    }
+
+    try {
+      await viewDocument({
+        uri: item.uri,
+        mimeType: item.mimeType || undefined,
+        grantPermissions: 'read',
+      });
+    } catch {
+      setNotice(
+        'No se encontró una aplicación compatible para abrir este archivo.',
+      );
+    }
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.safeArea}>
@@ -246,19 +268,7 @@ function App() {
               notice={notice}
               onAddFiles={addFiles}
               onCloseFolder={() => setActiveFolder(null)}
-              onOpenFile={async item => {
-                try {
-                  await viewDocument({
-                    uri: item.uri,
-                    mimeType: item.mimeType || undefined,
-                    grantPermissions: 'read',
-                  });
-                } catch {
-                  setNotice(
-                    'No se encontró una aplicación compatible para abrir este archivo.',
-                  );
-                }
-              }}
+              onOpenFile={openFile}
               onOpenFolder={setActiveFolder}
             />
           ) : (
@@ -272,6 +282,35 @@ function App() {
             />
           )}
         </View>
+        <Modal
+          animationType="fade"
+          visible={selectedImage !== null}
+          onRequestClose={() => setSelectedImage(null)}
+        >
+          <SafeAreaView style={styles.previewScreen}>
+            <View style={styles.previewHeader}>
+              <Text numberOfLines={1} style={styles.previewTitle}>
+                {selectedImage?.name}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar imagen"
+                onPress={() => setSelectedImage(null)}
+                style={styles.previewCloseButton}
+              >
+                <Text style={styles.previewCloseText}>Cerrar</Text>
+              </Pressable>
+            </View>
+            {selectedImage && (
+              <Image
+                accessibilityLabel={selectedImage.name}
+                resizeMode="contain"
+                source={{ uri: selectedImage.uri }}
+                style={styles.previewImage}
+              />
+            )}
+          </SafeAreaView>
+        </Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -683,6 +722,30 @@ const styles = StyleSheet.create({
   fileText: { flex: 1, marginLeft: 12 },
   fileName: { color: '#302F2B', fontSize: 14, fontWeight: '600' },
   fileDetail: { color: '#7C7871', fontSize: 12, marginTop: 3 },
+  previewScreen: { backgroundColor: '#1B1B19', flex: 1 },
+  previewHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingVertical: 15,
+  },
+  previewTitle: {
+    color: '#FFFFFF',
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 12,
+  },
+  previewCloseButton: {
+    borderColor: '#96938C',
+    borderRadius: 7,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  previewCloseText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
+  previewImage: { flex: 1, width: '100%' },
 });
 
 export default App;
